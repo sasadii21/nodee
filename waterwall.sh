@@ -11,8 +11,8 @@ apt-get install unzip -y
 
 # پرسیدن نوع عملیات
 echo "chikar konim kako :"
-echo "1: to iraniii "
-echo "2: to kharjiii"
+echo "2: to iraniii "
+echo "1: to kharjiii"
 echo "3: hazfkon"
 read -p " (1 ya 2 ya 3): " operation_type
 
@@ -54,7 +54,7 @@ else
 fi
 
 # پرسیدن تعداد سرورها
-read -p "تعداد سرورها (حداکثر 5): " server_count
+read -p "(1 / 5): " server_count
 
 # اعتبارسنجی تعداد سرورها
 if ((server_count < 1 || server_count > 5)); then
@@ -105,92 +105,87 @@ for (( i=1; i<=server_count; i++ )); do
 
     cat <<EOL > /root/$config_name
 {
-    "name": "reverse_reality_grpc_hd_multiport",
+    "name": "reverse_reality_grpc_client_hd_multiport_client",
     "nodes": [
         {
-            "name": "users_inbound",
-            "type": "TcpListener",
+            "name": "outbound_to_core",
+            "type": "TcpConnector",
             "settings": {
-                "address": "0.0.0.0",
-                "port": $port,
-                "nodelay": true
-            },
-            "next": "header"
+                "nodelay": true,
+                "address": "127.0.0.1",
+                "port": $port
+            }
         },
         {
             "name": "header",
-            "type": "HeaderClient",
+            "type": "HeaderServer",
             "settings": {
-                "data": "src_context->port"
+                "override": "dest_context->port"
             },
-            "next": "bridge2"
-        },
-        {
-            "name": "bridge2",
-            "type": "Bridge",
-            "settings": {
-                "pair": "bridge1"
-            }
+            "next": "outbound_to_core"
         },
         {
             "name": "bridge1",
             "type": "Bridge",
             "settings": {
                 "pair": "bridge2"
-            }
+            },
+            "next": "header"
         },
         {
-            "name": "reality_server",
-            "type": "RealityServer",
+            "name": "bridge2",
+            "type": "Bridge",
             "settings": {
-                "destination": "reality_dest",
+                "pair": "bridge1"
+            },
+            "next": "reverse_client"
+        },
+        {
+            "name": "reverse_client",
+            "type": "ReverseClient",
+            "settings": {
+                "minimum-unused": 16
+            },
+            "next": "pbclient"
+        },
+        {
+            "name": "pbclient",
+            "type": "ProtoBufClient",
+            "settings": {},
+            "next": "h2client"
+        },
+        {
+            "name": "h2client",
+            "type": "Http2Client",
+            "settings": {
+                "host": "$site",
+                "port": 443,
+                "path": "/",
+                "content-type": "application/grpc",
+                "concurrency": 128
+            },
+            "next": "halfc"
+        },
+        {
+            "name": "halfc",
+            "type": "HalfDuplexClient",
+            "next": "reality_client"
+        },
+        {
+            "name": "reality_client",
+            "type": "RealityClient",
+            "settings": {
+                "sni": "$site",
                 "password": "CwnwTgwISo"
             },
-            "next": "halfs"
+            "next": "outbound_to_iran"
         },
         {
-            "name": "halfs",
-            "type": "HalfDuplexServer",
-            "settings": {},
-            "next": "reality_server"
-        },
-        {
-            "name": "h2server",
-            "type": "Http2Server",
-            "settings": {},
-            "next": "halfs"
-        },
-        {
-            "name": "pbserver",
-            "type": "ProtoBufServer",
-            "settings": {},
-            "next": "h2server"
-        },
-        {
-            "name": "reverse_server",
-            "type": "ReverseServer",
-            "settings": {},
-            "next": "pbserver"
-        },
-        {
-            "name": "kharej_inbound",
-            "type": "TcpListener",
-            "settings": {
-                "address": "0.0.0.0",
-                "port": 443,
-                "nodelay": true,
-                "whitelist": [
-                    "$external_ip/32"
-                ]
-            },
-            "next": "reality_server"
-        },
-        {
-            "name": "reality_dest",
+            "name": "outbound_to_iran",
             "type": "TcpConnector",
             "settings": {
                 "nodelay": true,
-                "address": "$site",
+                "address": "$ip",
                 "port": 443
             }
         }
