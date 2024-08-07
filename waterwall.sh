@@ -185,7 +185,7 @@ for (( i=1; i<=server_count; i++ )); do
             "type": "TcpConnector",
             "settings": {
                 "nodelay": true,
-                "address": "$ip",
+                "address": "$external_ip",
                 "port": 443
             }
         }
