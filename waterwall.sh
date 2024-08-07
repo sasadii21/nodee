@@ -3,7 +3,33 @@
 # به‌روزرسانی سیستم
 apt-get update && apt-get upgrade -y
 
+# نصب unzip در صورت عدم وجود
 apt-get install unzip -y
+
+# پرسیدن نوع عملیات
+echo "لطفاً نوع عملیات را انتخاب کنید:"
+echo "1: تنظیم سرور ایرانی"
+echo "2: تنظیم سرور خارجی"
+echo "3: حذف تمامی فایل‌ها و برنامه‌های نصب شده و لغو سرویس‌ها"
+read -p "انتخاب شما (1، 2 یا 3): " operation_type
+
+if [ "$operation_type" -eq 3 ]; then
+  # توقف و غیرفعال کردن سرویس
+  systemctl stop waterwall.service
+  systemctl disable waterwall.service
+
+  # حذف فایل‌های سرویس
+  rm -f /etc/systemd/system/waterwall.service
+
+  # حذف تمامی فایل‌ها و برنامه‌های نصب شده
+  rm -f /root/Waterwall
+  rm -f /root/config_name*.json
+  rm -f /root/core.json
+
+  echo "تمامی فایل‌ها و برنامه‌های نصب شده حذف شدند و سرویس‌ها لغو شدند."
+  exit 0
+fi
+
 # دانلود WaterWall
 wget https://github.com/radkesvat/WaterWall/releases/download/v1.30/Waterwall-linux-64.zip
 
@@ -15,17 +41,21 @@ rm Waterwall-linux-64.zip
 chmod u+x Waterwall
 
 # پرسیدن نوع سرور
-echo "kojaii:"
-echo "1: irani"
-echo "2: khrji"
-read -p " (1 ya 2): " server_type
+if [ "$operation_type" -eq 1 ]; then
+  echo "شما سرور ایرانی را انتخاب کردید."
+elif [ "$operation_type" -eq 2 ]; then
+  echo "شما سرور خارجی را انتخاب کردید."
+else
+  echo "انتخاب نامعتبر است."
+  exit 1
+fi
 
 # پرسیدن تعداد سرور
-read -p " (ta 5): " server_count
+read -p "تعداد سرورها (حداکثر 5): " server_count
 
 # اعتبارسنجی تعداد سرورها
 if ((server_count < 1 || server_count > 5)); then
-  echo " 1 ta 5 ."
+  echo "تعداد سرورها باید بین 1 تا 5 باشد."
   exit 1
 fi
 
@@ -66,11 +96,10 @@ for (( i=1; i<=server_count; i++ )); do
     config_names+=','
   fi
 
-  if [ "$server_type" -eq 1 ]; then
-    echo "iraniiii."
-    read -p "port $i: " port
-    read -p "ip kharj $i: " external_ip
-    read -p "sni $i: " site
+  if [ "$operation_type" -eq 1 ]; then
+    read -p "پورت برای سرور $i: " port
+    read -p "آیپی خارجی برای سرور $i: " external_ip
+    read -p "سایت برای سرور $i: " site
 
     cat <<EOL > /root/$config_name
 {
@@ -109,30 +138,6 @@ for (( i=1; i<=server_count; i++ )); do
             }
         },
         {
-            "name": "reverse_server",
-            "type": "ReverseServer",
-            "settings": {},
-            "next": "bridge1"
-        },
-        {
-            "name": "pbserver",
-            "type": "ProtoBufServer",
-            "settings": {},
-            "next": "reverse_server"
-        },
-        {
-            "name": "h2server",
-            "type": "Http2Server",
-            "settings": {},
-            "next": "pbserver"
-        },
-        {
-            "name": "halfs",
-            "type": "HalfDuplexServer",
-            "settings": {},
-            "next": "h2server"
-        },
-        {
             "name": "reality_server",
             "type": "RealityServer",
             "settings": {
@@ -140,6 +145,30 @@ for (( i=1; i<=server_count; i++ )); do
                 "password": "CwnwTgwISo"
             },
             "next": "halfs"
+        },
+        {
+            "name": "halfs",
+            "type": "HalfDuplexServer",
+            "settings": {},
+            "next": "reality_server"
+        },
+        {
+            "name": "h2server",
+            "type": "Http2Server",
+            "settings": {},
+            "next": "halfs"
+        },
+        {
+            "name": "pbserver",
+            "type": "ProtoBufServer",
+            "settings": {},
+            "next": "h2server"
+        },
+        {
+            "name": "reverse_server",
+            "type": "ReverseServer",
+            "settings": {},
+            "next": "pbserver"
         },
         {
             "name": "kharej_inbound",
@@ -167,10 +196,9 @@ for (( i=1; i<=server_count; i++ )); do
 }
 EOL
   else
-    echo "kharji."
-    read -p "port $i: " port
-    read -p "ip iran $i: " ip
-    read -p "sni $i: " site
+    read -p "پورت برای سرور $i: " port
+    read -p "آیپی برای سرور $i: " ip
+    read -p "سایت برای سرور $i: " site
 
     cat <<EOL > /root/$config_name
 {
@@ -183,39 +211,51 @@ EOL
                 "nodelay": true,
                 "address": "127.0.0.1",
                 "port": $port
-            }
+            },
+            "next": "header"
         },
         {
             "name": "header",
             "type": "HeaderServer",
             "settings": {
-                "override": "dest_context->port"
+                "field": "Port"
             },
-            "next": "outbound_to_core"
-        },
-        {
-            "name": "bridge1",
-            "type": "Bridge",
-            "settings": {
-                "pair": "bridge2"
-            },
-            "next": "header"
+            "next": "bridge2"
         },
         {
             "name": "bridge2",
             "type": "Bridge",
             "settings": {
                 "pair": "bridge1"
-            },
-            "next": "reverse_client"
+            }
         },
         {
-            "name": "reverse_client",
-            "type": "ReverseClient",
+            "name": "bridge1",
+            "type": "Bridge",
             "settings": {
-                "minimum-unused": 16
+                "pair": "bridge2"
+            }
+        },
+        {
+            "name": "reality_client",
+            "type": "RealityClient",
+            "settings": {
+                "password": "CwnwTgwISo",
+                "destination": "reality_dest"
             },
-            "next": "pbclient"
+            "next": "bridge1"
+        },
+        {
+            "name": "halfc",
+            "type": "HalfDuplexClient",
+            "settings": {},
+            "next": "reality_client"
+        },
+        {
+            "name": "h2client",
+            "type": "Http2Client",
+            "settings": {},
+            "next": "halfc"
         },
         {
             "name": "pbclient",
@@ -224,37 +264,27 @@ EOL
             "next": "h2client"
         },
         {
-            "name": "h2client",
-            "type": "Http2Client",
+            "name": "reverse_client",
+            "type": "ReverseClient",
+            "settings": {},
+            "next": "pbclient"
+        },
+        {
+            "name": "core_inbound",
+            "type": "TcpListener",
             "settings": {
-                "host": "$site",
+                "address": "$ip",
                 "port": 443,
-                "path": "/",
-                "content-type": "application/grpc",
-                "concurrency": 128
+                "nodelay": true
             },
-            "next": "halfc"
+            "next": "reverse_client"
         },
         {
-            "name": "halfc",
-            "type": "HalfDuplexClient",
-            "next": "reality_client"
-        },
-        {
-            "name": "reality_client",
-            "type": "RealityClient",
-            "settings": {
-                "sni": "$site",
-                "password": "CwnwTgwISo"
-            },
-            "next": "outbound_to_iran"
-        },
-        {
-            "name": "outbound_to_iran",
+            "name": "reality_dest",
             "type": "TcpConnector",
             "settings": {
                 "nodelay": true,
-                "address": "$ip",
+                "address": "$site",
                 "port": 443
             }
         }
@@ -264,13 +294,14 @@ EOL
   fi
 done
 
-core_config+=$config_names
-core_config+=']}'
+# تکمیل تنظیمات core.json
+core_config+=$config_names']}' 
 
 echo "$core_config" > /root/core.json
 
-# ایجاد فایل سرویس systemd
-cat <<EOL > /etc/systemd/system/waterwall.service
+# ساخت سرویس
+cat <<```bash
+EOL > /etc/systemd/system/waterwall.service
 [Unit]
 Description=Waterwall Service
 After=network.target
@@ -287,8 +318,8 @@ WantedBy=multi-user.target
 EOL
 
 # فعال‌سازی و شروع سرویس
-sudo systemctl daemon-reload
-sudo systemctl enable waterwall.service
-sudo systemctl start waterwall.service
+systemctl daemon-reload
+systemctl enable waterwall.service
+systemctl start waterwall.service
 
-echo "krdmsh absh omd."
+echo "سرویس Waterwall با موفقیت راه‌اندازی شد."
