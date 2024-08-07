@@ -1,24 +1,35 @@
 #!/bin/bash
 
-# 1. به‌روزرسانی و ارتقاء بسته‌ها
-apt-get update
-apt-get upgrade -y
+# به‌روزرسانی سیستم
+apt-get update && apt-get upgrade -y
 
-# 2. دانلود و نصب WaterWall
+# دانلود WaterWall
 wget https://github.com/radkesvat/WaterWall/releases/download/v1.30/Waterwall-linux-64.zip
+
+# استخراج فایل
 unzip Waterwall-linux-64.zip
 rm Waterwall-linux-64.zip
+
+# تغییر مجوزها
 chmod u+x Waterwall
 
-# 3. پرسش نوع سرور
-echo "iran ya kharj:"
-echo "1) iran"
-echo "2) kharj"
+# پرسیدن نوع سرور
+echo "kojaii:"
+echo "1: irani"
+echo "2: khrji"
 read -p " (1 ya 2): " server_type
 
-# 4. ایجاد و پیکربندی core.json
-cat <<EOF > core.json
-{
+# پرسیدن تعداد سرور
+read -p " (ta 5): " server_count
+
+# اعتبارسنجی تعداد سرورها
+if ((server_count < 1 || server_count > 5)); then
+  echo " 1 ta 5 ."
+  exit 1
+fi
+
+# تنظیم فایل core.json
+core_config='{
     "log": {
         "path": "log/",
         "core": {
@@ -43,20 +54,24 @@ cat <<EOF > core.json
         "ram-profile": "server",
         "libs-path": "libs/"
     },
-    "configs": [
-        "config_name.json"
-    ]
-}
-EOF
+    "configs": ['
+config_names=""
 
-# 5. پیکربندی config_name.json
-if [ "$server_type" -eq 1 ]; then
-    echo "bkon tosh:"
-    read -p "port: " port
-    read -p "IP kharj: " external_ip
-    read -p "sni: " site
+# تنظیم فایل‌های config_name.json بر اساس انتخاب سرور
+for (( i=1; i<=server_count; i++ )); do
+  config_name="config_name$i.json"
+  config_names+='"'$config_name'"'
+  if [ "$i" -lt "$server_count" ]; then
+    config_names+=','
+  fi
 
-    cat <<EOF > config_name.json
+  if [ "$server_type" -eq 1 ]; then
+    echo "iraniiii."
+    read -p "port $i: " port
+    read -p "ip kharj $i: " external_ip
+    read -p "sni $i: " site
+
+    cat <<EOL > /root/$config_name
 {
     "name": "reverse_reality_grpc_hd_multiport",
     "nodes": [
@@ -149,15 +164,14 @@ if [ "$server_type" -eq 1 ]; then
         }
     ]
 }
-EOF
+EOL
+  else
+    echo "kharji."
+    read -p "port $i: " port
+    read -p "ip iran $i: " ip
+    read -p "sni $i: " site
 
-elif [ "$server_type" -eq 2 ]; then
-    echo "bzn tosh:"
-    read -p "port: " port
-    read -p "IP: " ip
-    read -p "sni: " site
-
-    cat <<EOF > config_name.json
+    cat <<EOL > /root/$config_name
 {
     "name": "reverse_reality_grpc_client_hd_multiport_client",
     "nodes": [
@@ -245,10 +259,35 @@ elif [ "$server_type" -eq 2 ]; then
         }
     ]
 }
-EOF
-else
-    echo "انتخاب نامعتبر است. لطفاً مجدداً تلاش کنید."
-    exit 1
-fi
+EOL
+  fi
+done
 
-echo "پیکربندی انجام شد."
+core_config+=$config_names
+core_config+=']}'
+
+echo "$core_config" > /root/core.json
+
+# ایجاد فایل سرویس systemd
+cat <<EOL > /etc/systemd/system/waterwall.service
+[Unit]
+Description=Waterwall Service
+After=network.target
+
+[Service]
+ExecStart=/root/Waterwall
+WorkingDirectory=/root
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# فعال‌سازی و شروع سرویس
+sudo systemctl daemon-reload
+sudo systemctl enable waterwall.service
+sudo systemctl start waterwall.service
+
+echo "krdmsh absh omd."
