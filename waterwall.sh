@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# تنظیم متغیرهای محلی برای استفاده از UTF-8
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
+sudo timedatectl set-ntp false
+sudo timedatectl set-timezone UTC
 
 # به‌روزرسانی سیستم
 apt-get update && apt-get upgrade -y
@@ -11,11 +10,11 @@ apt-get update && apt-get upgrade -y
 apt-get install unzip -y
 
 # پرسیدن نوع عملیات
-echo "لطفاً نوع عملیات را انتخاب کنید:"
-echo "1: تنظیم سرور ایرانی"
-echo "2: تنظیم سرور خارجی"
-echo "3: حذف تمامی فایل‌ها و برنامه‌های نصب شده و لغو سرویس‌ها"
-read -p "انتخاب شما (1، 2 یا 3): " operation_type
+echo "chikar konim kako :"
+echo "1: to iraniii "
+echo "2: to kharjiii"
+echo "3: hazfkon"
+read -p " (1 ya 2 ya 3): " operation_type
 
 if [ "$operation_type" -eq 3 ]; then
   # توقف و غیرفعال کردن سرویس
@@ -30,7 +29,7 @@ if [ "$operation_type" -eq 3 ]; then
   rm -f /root/config_name*.json
   rm -f /root/core.json
 
-  echo "تمامی فایل‌ها و برنامه‌های نصب شده حذف شدند و سرویس‌ها لغو شدند."
+  echo "paksh krdam."
   exit 0
 fi
 
@@ -46,9 +45,9 @@ chmod u+x Waterwall
 
 # پرسیدن نوع سرور
 if [ "$operation_type" -eq 1 ]; then
-  echo "شما سرور ایرانی را انتخاب کردید."
+  echo "iran mikony."
 elif [ "$operation_type" -eq 2 ]; then
-  echo "شما سرور خارجی را انتخاب کردید."
+  echo "khrah mikony."
 else
   echo "انتخاب نامعتبر است."
   exit 1
@@ -59,11 +58,12 @@ read -p "تعداد سرورها (حداکثر 5): " server_count
 
 # اعتبارسنجی تعداد سرورها
 if ((server_count < 1 || server_count > 5)); then
-  echo "تعداد سرورها باید بین 1 تا 5 باشد."
+  echo "1 taaaa 5 ."
   exit 1
 fi
 
 # تنظیم فایل core.json
+config_names=""
 core_config='{
     "log": {
         "path": "log/",
@@ -90,9 +90,7 @@ core_config='{
         "libs-path": "libs/"
     },
     "configs": ['
-config_names=""
 
-# تنظیم فایل‌های config_name.json بر اساس انتخاب سرور
 for (( i=1; i<=server_count; i++ )); do
   config_name="config_name$i.json"
   config_names+='"'$config_name'"'
@@ -101,9 +99,9 @@ for (( i=1; i<=server_count; i++ )); do
   fi
 
   if [ "$operation_type" -eq 1 ]; then
-    read -p "پورت برای سرور $i: " port
-    read -p "آیپی خارجی برای سرور $i: " external_ip
-    read -p "سایت برای سرور $i: " site
+    read -p "port $i: " port
+    read -p "ip iran $i: " external_ip
+    read -p "sni $i: " site
 
     cat <<EOL > /root/$config_name
 {
@@ -200,9 +198,9 @@ for (( i=1; i<=server_count; i++ )); do
 }
 EOL
   else
-    read -p "پورت برای سرور $i: " port
-    read -p "آیپی برای سرور $i: " ip
-    read -p "سایت برای سرور $i: " site
+    read -p "port $i: " port
+    read -p "ip kharj $i: " ip
+    read -p "sni $i: " site
 
     cat <<EOL > /root/$config_name
 {
@@ -215,8 +213,7 @@ EOL
                 "nodelay": true,
                 "address": "127.0.0.1",
                 "port": $port
-            },
-            "next": "header"
+            }
         },
         {
             "name": "header",
@@ -241,25 +238,12 @@ EOL
             }
         },
         {
-            "name": "reality_client",
-            "type": "RealityClient",
+            "name": "reverse_client",
+            "type": "ReverseClient",
             "settings": {
-                "password": "CwnwTgwISo",
-                "destination": "reality_dest"
+                "minimum-unused": 16
             },
-            "next": "bridge1"
-        },
-        {
-            "name": "halfc",
-            "type": "HalfDuplexClient",
-            "settings": {},
-            "next": "reality_client"
-        },
-        {
-            "name": "h2client",
-            "type": "Http2Client",
-            "settings": {},
-            "next": "halfc"
+            "next": "pbclient"
         },
         {
             "name": "pbclient",
@@ -268,27 +252,37 @@ EOL
             "next": "h2client"
         },
         {
-            "name": "reverse_client",
-            "type": "ReverseClient",
-            "settings": {},
-            "next": "pbclient"
-        },
-        {
-            "name": "core_inbound",
-            "type": "TcpListener",
+            "name": "h2client",
+            "type": "Http2Client",
             "settings": {
-                "address": "$ip",
+                "host": "$site",
                 "port": 443,
-                "nodelay": true
+                "path": "/",
+                "content-type": "application/grpc",
+                "concurrency": 128
             },
-            "next": "reverse_client"
+            "next": "halfc"
         },
         {
-            "name": "reality_dest",
+            "name": "halfc",
+            "type": "HalfDuplexClient",
+            "next": "reality_client"
+        },
+        {
+            "name": "reality_client",
+            "type": "RealityClient",
+            "settings": {
+                "sni": "$site",
+                "password": "CwnwTgwISo"
+            },
+            "next": "outbound_to_iran"
+        },
+        {
+            "name": "outbound_to_iran",
             "type": "TcpConnector",
             "settings": {
                 "nodelay": true,
-                "address": "$site",
+                "address": "$ip",
                 "port": 443
             }
         }
@@ -298,16 +292,20 @@ EOL
   fi
 done
 
-# تکمیل تنظیمات core.json
-core_config+=$config_names']}' 
+core_config+="$config_names"
+core_config+="
+    ]
+}
+"
 
+# نوشتن فایل core.json
 echo "$core_config" > /root/core.json
 
-# ایجاد فایل سرویس
+
+# ادامه ایجاد فایل سرویس waterwall.service
 cat <<EOL > /etc/systemd/system/waterwall.service
 [Unit]
-Description=```bash
-Waterwall Service
+Description=Waterwall Service
 After=network.target
 
 [Service]
@@ -316,14 +314,60 @@ WorkingDirectory=/root
 Restart=always
 User=root
 Group=root
+RestartSec=30  # تنظیم زمان بین ریستارت‌ها به 30 ثانیه
 
 [Install]
 WantedBy=multi-user.target
 EOL
 
-# بارگذاری مجدد تنظیمات systemd و فعال‌سازی سرویس
+# بارگذاری مجدد فایل‌های سرویس
 systemctl daemon-reload
+
+# فعال کردن و راه‌اندازی سرویس
 systemctl enable waterwall.service
 systemctl start waterwall.service
 
-echo "سرویس Waterwall ایجاد و فعال شد."
+echo "سرویس Waterwall به‌درستی نصب و راه‌اندازی شد."
+
+# پرسیدن زمان‌بندی ریستارت سرویس
+echo "har chand sait restart konm:"
+echo "1: 1 H "
+echo "2: 2 H "
+echo "3: 3 H "
+echo "4: 4 H "
+echo "5: 5 H "
+echo "6: 6 H "
+read -p "bgo kako  (1 ta 6): " restart_interval
+
+case "$restart_interval" in
+  1)
+    interval_sec=3600
+    ;;
+  2)
+    interval_sec=7200
+    ;;
+  3)
+    interval_sec=10800
+    ;;
+  4)
+    interval_sec=14400
+    ;;
+  5)
+    interval_sec=18000
+    ;;
+  6)
+    interval_sec=21600
+    ;;
+  *)
+    echo "انتخاب نامعتبر است."
+    exit 1
+    ;;
+esac
+
+# تنظیم زمان‌بندی ریستارت سرویس
+crontab -l | { cat; echo "*/$((interval_sec/3600)) * * * * systemctl restart waterwall.service"; } | crontab -
+
+echo "bos ${restart_interval} ok shok mikonm."
+
+echo "kardm tmom shod sjaddd kako."
+
