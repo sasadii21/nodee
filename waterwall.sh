@@ -3,6 +3,7 @@
 # به‌روزرسانی سیستم
 apt-get update && apt-get upgrade -y
 
+apt-get install unzip -y
 # دانلود WaterWall
 wget https://github.com/radkesvat/WaterWall/releases/download/v1.30/Waterwall-linux-64.zip
 
