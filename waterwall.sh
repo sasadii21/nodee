@@ -11,10 +11,10 @@ rm Waterwall-linux-64.zip
 chmod u+x Waterwall
 
 # 3. پرسش نوع سرور
-echo "لطفا نوع سرور را انتخاب کنید:"
-echo "1) سرور ایرانی"
-echo "2) سرور خارج"
-read -p "انتخاب شما (1 یا 2): " server_type
+echo "iran ya kharj:"
+echo "1) iran"
+echo "2) kharj"
+read -p " (1 ya 2): " server_type
 
 # 4. ایجاد و پیکربندی core.json
 cat <<EOF > core.json
@@ -51,10 +51,10 @@ EOF
 
 # 5. پیکربندی config_name.json
 if [ "$server_type" -eq 1 ]; then
-    echo "لطفا پورت، IP و سایت را وارد کنید:"
-    read -p "پورت: " port
-    read -p "IP خارج: " external_ip
-    read -p "سایت: " site
+    echo "bkon tosh:"
+    read -p "port: " port
+    read -p "IP kharj: " external_ip
+    read -p "sni: " site
 
     cat <<EOF > config_name.json
 {
@@ -152,10 +152,10 @@ if [ "$server_type" -eq 1 ]; then
 EOF
 
 elif [ "$server_type" -eq 2 ]; then
-    echo "لطفا پورت، IP و سایت را وارد کنید:"
-    read -p "پورت: " port
+    echo "bzn tosh:"
+    read -p "port: " port
     read -p "IP: " ip
-    read -p "سایت: " site
+    read -p "sni: " site
 
     cat <<EOF > config_name.json
 {
